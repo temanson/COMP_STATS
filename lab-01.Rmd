@@ -1,0 +1,158 @@
+---
+title: 'STAT 345: Lab 1'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+Name: Eli Temanson
+Collaborated with: NA
+
+Today's agenda: Manipulating data objects; using the built-in functions,
+  doing numerical calculations, and basic plots; reinforcing core probabilistic
+  ideas.
+
+```{r}
+## For reproducibility --- don't change this!
+set.seed(234523)
+```
+
+***General instructions for labs***: Upload an R Markdown file, named with your ID and assignment label (e.g., Baumann_Doug_Lab1.rmd), to D2L. You will give the commands to answer each question in its own code block, which will also produce plots that will be automatically embedded in the output file. Each answer must be supported by written statements as well as any code used. Include the name of your lab partner (if you have one) in the file.
+
+
+The Binomial Distribution
+===
+
+The Binomial distribution $\mathrm{Bin}(n,p)$ is defined by the number of successes in $n$ independent trials, each have probability $p$ of success. Think of flipping a coin $n$ times, where the coin is weighted to have probability $p$ of landing on heads.
+
+The R function `rbinom()` generates random variables with a binomial distribution. E.g., 
+
+```{r,eval=FALSE}
+rbinom(n=20, size=10, prob=0.5)
+```
+
+produces 20 observations from $\mathrm{Bin}(10,0.5)$. 
+
+(Note that `eval=FALSE` was added to the r chunk above to prevent the code from executing. You can remove this to allow the code to generate.)
+
+
+
+Part I
+===
+
+1. Generate 200 random values from the $\mathrm{Bin}(10,0.5)$ distribution, and store them in a vector called `bin.draws.0.5`. Extract and display the first 10 elements. Extract and display all but the first 175 elements.
+
+```{r}
+#Comments are included with pound-signs/hashtags
+#Insert your code for problem 1 within this code chunk
+#Generates 200 random values fron Bin(10,0.5)
+bin.draws.0.5 <- rbinom(n=200, size=10, prob = 0.5)
+#prints the first 10 values
+head(bin.draws.0.5, n=10)
+#prints all but the last 25 
+tail(bin.draws.0.5, n=25)
+
+```
+
+2. Repeat, but change the probability of success $p$ to 0.1, 0.3, 0.7 and 0.9, storing the results in vectors called  `bin.draws.0.1`,  `bin.draws.0.3`,  `bin.draws.0.7` and  `bin.draws.0.9`. 
+
+```{r}
+#Generates 200 random values fron Bin(10,0.1)
+bin.draws.0.1 <- rbinom(n=200, size=10, prob = 0.1)
+
+bin.draws.0.3 <- rbinom(n=200, size=10, prob = 0.3)
+
+bin.draws.0.7 <- rbinom(n=200, size=10, prob = 0.7)
+
+bin.draws.0.9 <- rbinom(n=200, size=10, prob = 0.9)
+
+```
+
+3. The function `plot()` is the generic function in R for the visual display of data. `hist()` is a function that takes in and bins data as a side effect. To use this function, we must first specify what we'd like to plot.
+    a. Use the `hist()` function to produce a histogram of your Binomial distribution. For help with this function, type `?hist` into the console.
+    b. Use `plot()` with this vector to display the random values from your distribution in order.
+    c. Now, use `plot()` with two arguments -- any two of your other stored random value vectors -- to create a scatterplot of the two vectors against each other.
+    
+```{r}
+#part a
+hist(bin.draws.0.5)
+#part b
+plot(bin.draws.0.5)
+#part c
+plot(bin.draws.0.7,bin.draws.0.1)
+
+```
+
+4. We'd now like to compare the properties of each of our vectors. Begin by creating a vector of the means of each of our five distributions in the order we created them and saving this to a variable name of your choice. Using this and other similar vectors, create the following scatterplots:
+    a. The five means versus the five probabilities used to generate the distribution.
+    b. The standard deviations versus the probabilities.
+    c. The means versus the standard deviations.
+
+For each plot, explain in words what's going on.
+
+```{r}
+means <- c(mean(bin.draws.0.5),mean(bin.draws.0.1),mean(bin.draws.0.3),
+                mean(bin.draws.0.7),
+                mean(bin.draws.0.9))
+
+#part a
+plot(means, c(0.5,0.1,0.3,0.7,0.9))
+#part b
+std.dev <- c(sd(bin.draws.0.5),sd(bin.draws.0.1),sd(bin.draws.0.3),
+             sd(bin.draws.0.7),sd(bin.draws.0.9))
+
+plot(std.dev, c(0.5,0.1,0.3,0.7,0.9))
+#part c
+plot(means,std.dev)
+
+```
+
+
+Part II
+-------
+
+5. R's capacity for data storage and computation is very large compared to what was available 10 years ago. Generate 2 million numbers from $\mathrm{Bin}(1 \times 10^6, 0.5)$ distribution and store them in a vector called `big.bin.draws`. Calculate the mean and standard deviation of this vector.
+
+```{r}
+big.bin.draws <- rbinom(n=2*10^6, size=1*10^6, prob=0.5)
+mean(big.bin.draws)
+sd(big.bin.draws)
+```
+
+6. Create a new vector, called `big.bin.draws.standardized`, which is given by taking `big.bin.draws`, subtracting off its mean, and then dividing by its standard deviation. Calculate the mean and standard deviation of `big.bin.draws.standardized`. (These should be 0 and 1, respectively, or very, very close to it; if not, you've made a mistake somewhere).
+
+```{r}
+big.bin.draws.standarized <- (big.bin.draws - 
+                                mean(big.bin.draws))/sd(big.bin.draws)
+mean(big.bin.draws.standarized)
+sd(big.bin.draws.standarized)
+
+```
+
+7. Plot a histogram of `big.bin.draws.standardized`. To increase the number of histogram bars, set the `breaks` argument in the `hist()` function (e.g., set `breaks=100`). What does the shape of this histogram appear to be? Is this surprising? What could explain this phenomenon? (Hint: rhymes with "Mental Gimmick Serum" ...)
+
+```{r}
+hist(big.bin.draws.standarized, breaks=100)
+```
+The shape of the histogram appears to be standard normal, this isn't surprising after STAT 245. This is due to the Central Limit Theorem. 
+
+8. Calculate the proportion of times that an element of `big.bin.draws.standardized` exceeds 1.644854. Is this close to 0.05? 
+
+```{r}
+ss <- length(big.bin.draws.standarized[big.bin.draws.standarized > 1.644853])
+  
+tot <- length(big.bin.draws.standarized)
+
+ss/tot
+```
+Because the big.bin.draws.standardized is very large and should be very close to 0.05.
+
+9. Either by simulation, or via a built-in R function, compute the probability that a standard normal random variable exceeds 1.644854. Is this close to 0.05? (Hint: for either approach, it would be helpful to look at the help file for the `rnorm()` function.)
+
+```{r}
+rnorm(1.644853, mean=0, sd=1) 
+
+```
+
+Because of the randomness the rnorm() fucntion can be off by quite a bit.
+

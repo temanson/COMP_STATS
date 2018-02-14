@@ -1,0 +1,361 @@
+<style>
+  .reveal pre {font-size: 12px;}
+</style>
+
+Getting Data
+========================================================
+author: STAT 345
+transition: none
+font-family: 'Garamond'
+
+
+
+In Previous Episodes
+===
+
+- Seen functions to load data in passing
+- Learned about string manipulation and regexp
+
+Agenda
+===
+
+- Getting data into and out of the system when it's already in R format
+- Import and export when the data is already very structured and machine-readable
+- Dealing with less structured data
+- Web scraping
+
+
+Reading Data from R
+===
+
+- You can load and save R objects
+    + R has its own format for this, which is shared across operating systems
+    + It's an open, documented format if you really want to pry into it
+- `save(thing, file="name")` saves `thing` in a file called `name` (conventional extension: `rda` or `Rda`)
+- `load("name")` loads the object or objects stored in the file called `name`, _with their old names_
+
+Reading Data from R
+===
+```{r}
+gmp <- read.table("gmp.dat")
+gmp$pop <- round(gmp$gmp/gmp$pcgmp)
+save(gmp,file="gmp.Rda")
+rm(gmp)
+exists("gmp")
+```
+
+Reading Data from R
+===
+
+- We can load or save more than one object at once; this is how RStudio will load your whole workspace when you're starting, and offer to save it when you're done
+- Many packages come with saved data objects; there's the convenience function `data()` to load them
+```{r}
+ data(cats,package="MASS")
+summary(cats)
+```
+_Note_: `data()` returns the name of the loaded data file!
+
+
+Non-R Data Tables
+===
+
+- Tables full of data, just not in the R file format
+- Main function: `read.table()`
+    + Presumes space-separated fields, one line per row
+    + Main argument is the file name or URL
+    + Returns a dataframe
+    + Lots of options for things like field separator, column names, forcing or guessing column types, skipping lines at the start of the file...
+- `read.csv()` is a short-cut to set the options for reading comma-separated value (CSV) files
+    + Spreadsheets will usually read and write CSV
+
+Writing Dataframes
+===
+
+- Counterpart functions `write.table()`, `write.csv()` write a dataframe into a file
+- Drawback: takes a lot more disk space than what you get from `load` or `save`
+- Advantage: can communicate with other programs, or even  edit manually
+
+
+Less Friendly Data Formats
+===
+
+- The `foreign` package on CRAN has tools for reading data files from lots of non-R statistical software
+- Spreadsheets are special
+
+
+Spreadsheets Considered Harmful
+===
+
+- Spreadsheets look like they should be dataframes
+- Real spreadsheets are full of ugly irregularities
+    + Values or formulas?
+    + Headers, footers, side-comments, notes
+    + Columns change meaning half-way down
+    + Whole separate programming languages apparently intended to mostly to spread malware
+- Ought-to-be-notorious source of errors in both industry ([1](http://ftalphaville.ft.com/2013/01/17/1342082/a-tempest-in-a-spreadsheet/), [2](http://baselinescenario.com/2013/02/09/the-importance-of-excel/)) and science (e.g., Reinhart and Rogoff)
+
+
+Spreadsheets, If You Have To
+===
+
+- Save the spreadsheet as a CSV; `read.csv()`
+- Save the spreadsheet as a CSV; edit in a text editor; `read.csv()`
+- Use `read.xls()` from the `gdata` package
+  + Tries very hard to work like `read.csv()`, can take a URL or filename
+  + Can skip down to the first line that matches some pattern, select different sheets, etc.
+  + You may still need to do a lot of tidying up after
+
+Spreadsheets, If You Have To
+===
+```{r}
+require(gdata, quietly=TRUE)
+```
+
+```{r}
+gmp_2008_2013 <- data("gdp_metro0914.xls",pattern="U.S.")
+head(gmp_2008_2013)
+```
+
+
+Semi-Structured Files, Odd Formats
+===
+
+- Files with metadata (e.g., earthquake catalog)
+- Non-tabular arrangement
+- Generally, write function to read in one (or a few) lines and split it into some nicer format
+    + Generally involves a lot of regexps
+    + Functions are easier to get right than code blocks in loops
+
+
+In Praise of Capture Groups
+===
+
+- Parentheses don't just group for quantifiers; they also create _capture groups_, which the regexp engine remembers
+- Can be referred to later (`\1`, `\2`, etc.)
+- Can also be used to simplify getting stuff out
+- Examples in the readings on regexps, but let's reinforce the point
+
+Scraping the Rich
+===
+
+- Remember that the lines giving net worth looked like
+```
+    <td class="worth">$72 B</td>
+```
+or
+```
+  	<td class="worth">$5,3 B</td>
+```
+
+Scraping the Rich
+===
+
+One regexp which catches this:
+```{r}
+richhtml <- readLines("rich.html")
+worth_pattern <- "\\$[0-9,]+ B"
+worth_lines <- grep(worth_pattern, richhtml)
+length(worth_lines)
+```
+
+Just using this gives us strings, including the markers we used to pin down where the information was:
+```{r}
+worth_matches <- regexpr(worth_pattern, richhtml)
+worths <- regmatches(richhtml, worth_matches)
+head(worths)
+```
+
+
+Scraping the Rich
+===
+Now we'd need to get rid of the anchoring `$` and ` B`; we could use `substr`, but...
+
+Adding a capture group doesn't change what we match:
+```{r}
+worth_capture <- worth_pattern <- "\\$([0-9,]+) B"
+capture_lines <- grep(worth_capture, richhtml)
+identical(worth_lines, capture_lines)
+```
+
+but it _does_ have an advantage
+
+Using `regexec`
+===
+
+```{r}
+worth_matches <- regmatches(richhtml[capture_lines], 
+  regexec(worth_capture, richhtml[capture_lines]))
+worth_matches[1:2]
+```
+
+List with 1 element per matching line, giving the whole match and then each paranethesized matching sub-expression
+
+
+===
+Functions make the remaining manipulation easier:
+
+```{r}
+second_element <- function(x) { return(x[2]) }
+worth_strings <- sapply(worth_matches, second_element)
+comma_to_dot <- function(x) {
+  return(gsub(pattern=",",replacement=".",x))
+}
+worths <- as.numeric(sapply(worth_strings, comma_to_dot))
+head(worths)
+```
+
+_Exercise_: Write _one_ function which takes a single line, gets the capture group, and converts it to a number
+
+Web Scraping
+===
+
+1. Take a webpage designed for humans to read
+2. Have the computer extract the information we actually want
+3. Iterate as appropriate
+
+Take in unstructured pages, return rigidly formatted data
+
+===
+!["and then a miracle happens"](http://imgc-cn.artprintimages.com/images/P-473-488-90/60/6079/KTUD100Z/posters/sidney-harris-i-think-you-should-be-more-explicit-here-in-step-two-cartoon.jpg)
+
+Being More Explicit in Step 2
+===
+
+- The information we want is _somewhere_ in the page, possibly in the HTML
+- There are usually markers surrounding it, probably in the HTML
+- We now know how to pick apart HTML using regular expressions
+
+Being More Explicit in Step 2
+===
+- Figure out _exactly_ what we want from the page
+- Understand how the information is organized on the page
+    + What does a human use to find it?
+    + Where do those cues appear in the HTML source?
+- Write a function to automate information extraction
+    + Generally, this means regexps
+    + Parenthesized capture groups are helpful
+    + The function may need to iterate
+    + You may need more than one function
+- Once you've got it working for one page, iterate over relevant pages
+
+Example: Book Networks
+===
+
+Famous example from [Vladis Krebs](http://www.orgnet.com/divided1.html)
+
+![network of political books](http://www.orgnet.com/leftright.gif)
+
+===
+
+- Two books are linked if they're bought together at Amazon
+
+- Amazon gives this information away (to try to drive sales)
+
+- How would we replicate this?
+
+===
+
+[http://www.amazon.com/dp/0387747303/]
+
+[Part of the Amazon page for _Data Manipulation with R_](https://images-na.ssl-images-amazon.com/images/I/318agySjvEL._SX328_BO1,204,203,200_.jpg)
+
+===
+
+- Do we want "frequently bought together", or "customers who bought this also bought that"?  Or even "what else do customers buy after viewing this"?
+    + Let's say "customers who bought this also bought that"
+- Now look carefully at the HTML
+    + There are over 14,000 lines in the HTML file for this page; you'll need a text editor
+    + Fortunately most of it's irrelevant
+
+===
+
+```
+<div class="shoveler" id="purchaseShvl">
+    <div class="shoveler-heading">
+        <h2>Customers Who Bought This Item Also Bought</h2>
+    </div>
+
+<div class="shoveler-pagination" style="display:none">
+
+<span>&nbsp;</span>
+<span>
+Page <span class="page-number"></span>  of  <span class="num-pages"></span> 
+<span class="start-over"><span class="a-text-separator"></span><a href="#" onclick="return false;" class="start-over-link">Start over</a></span>
+</span>
+</div>
+
+    <div class="shoveler-button-wrapper" id="purchaseButtonWrapper">
+        <a class="back-button" href="#Back" style="display:none" onclick="return false;"><span class="auiTestSprite s_shvlBack"><span>Back</span></span></a>
+        <div class="shoveler-content">
+            <ul tabindex="-1">
+```
+
+===
+
+Here's the first of the also-bought books:
+```
+<li>
+  <div class="new-faceout p13nimp"  id="purchase_0387981403" data-asin="0387981403" data-ref="pd_sim_b_1">
+    
+<a href="/ggplot2-Elegant-Graphics-Data-Analysis/dp/0387981403/ref=pd_sim_b_1?ie=UTF8&refRID=1HZ0VDHEFFX3EM2WNWRH"  class="sim-img-title" > <div class="product-image">
+                       <img src="http://ecx.images-amazon.com/images/I/31I22xsT%2BXL._SL500_PIsitb-sticker-arrow-big,TopRight,35,-73_OU01_SS100_.jpg" width="100" alt="" height="100" border="0" />
+                    </div>
+                    <span title="ggplot2: Elegant Graphics for Data Analysis (Use R!)">ggplot2: Elegant Graphics for Data &#133;</span> </a>
+
+    <div class="byline">
+        <span class="carat">&#8250</span> 
+```
+
+We _could_ extract the ISBN from this, and then go on to the next book, and so forth...
+
+===
+
+```
+<div id="purchaseSimsData" class="sims-data"
+style="display:none" data-baseAsin="0387747303"
+data-deviceType="desktop" data-featureId="pd_sim" data-isAUI="1" data-pageId="0387747303" data-pageRequestId="1HZ0VDHEFFX3EM2WNWRH" data-reftag="pd_sim_b" data-vt="0387747303"
+data-wdg="book_display_on_website"
+data-widgetName="purchase">0387981403,0596809158,1593273843,1449316956,
+0387938362,144931208X,0387790535,0387886974,0470973927,0387759689,
+1439810184,1461413648,1461471370,1782162143,1441998896,1429224622,
+1612903436,1441996494,1461468485,1617291560,1439831769,0321888030,1449319793,
+1119962846,0521762936,1446200469,1449358659,1935182390,0123814855,1599941651,
+0387759352,1461476178,0387773169,0387922970,0073523321,141297514X,1439840954,
+1612900275,1449339735,052168689X,0387781706,1584884509,0387848576,1420068725,
+1441915753,1466572841,1107422221,111844714X,0716762196,0133412938,1482203537,
+0963488406,1466586966,0470463635,1493909827,1420079336,0321898656,1461422981,
+158488424X,1441926127,1466570229,1590475348,1430266406,0071794565,0071623663,
+111866146X,1441977864,1782160604,1449340377,1449309038,0963488414,0137444265,
+1461406846,0073014664,1449370780,144197864X,3642201911,0534243126,1461443423,
+158488651X,1449357105,1118208781,1420099604,1107057132,1449355730,1118356853,
+1449361323,0470890819,0387245448,0521518148,0521169828,1584888490,1461464455,
+0387781889,0387759581,0387717617,0123748569,188652923X,0155061399,0201076160</div>
+```
+
+
+In this case there's a big block which gives us the ISBNs of _all_ the also-bought books
+
+Strategy:
+===
+
+- Load the page as text
+- Search for the regexp which begins this block, contains at least one ISBN, and then ends
+- Extract the sequence of ISBNs as a string, split on comma
+- Record in a dataframe that _Data Manipulation_'s ISBN is also bought with each of those ISBNs
+- _Snowball sampling_: Go to the webpage of each of those books and repeat
+    + Stop when we get tired...
+    + Or when Amazon gets annoyed with us
+
+More considerations on web-scraping
+===
+
+- You should really look at the site's `robots.txt` file and respect it
+- See [https://github.com/hadley/rvest] for a prototype of a package to automate a lot of the work of scraping webpages
+
+Summary
+===
+
+- Loading and saving R objects is very easy
+- Reading and writing dataframes is pretty easy
+- Extracting data from unstructured sources is about using regexps appropriately
+    + Maybe not _easy_, but at least _feasible_

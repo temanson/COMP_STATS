@@ -1,0 +1,98 @@
+---
+title: 'Lab 3: Scrape the Rich!'
+author: "STAT 345"
+output: html_document
+---
+
+
+Today's agenda: Using regular expressions to extract data from text; text manipulations; getting used to very skewed distributions
+
+***General instructions for labs***: Upload an R Markdown file to D2L. You will give the commands to answer each question in its own code block, which will also produce plots that will be automatically embedded in the output file. Each answer must be supported by written statements as well as any code used. Include your name and the name of your lab partner (if you have one) in the file.
+
+The file `rich.html` on the class D2L site is a listing of the 100 richest people in America, according to _Forbes_ magazine.  We will use the file to practice extracting information from Web pages.
+
+Part I
+===
+
+1. Use the `readLines` command to load the file into a character vector called `richhtml`.  How many lines does it contain? What is the total number of characters in the file?
+
+
+```{r}
+
+richhtml <- readLines('rich.html')
+length(richhtml)
+sum(nchar(richhtml))
+
+#num_char <- strsplit(richhtml, split= "\\s + |([[:punct:]]+[[:space:]]+"))
+
+```
+
+**1991 lines and 80380 characters ** 
+
+2. Open the file in a text editor (_not_ as a web-page).  Find the entries for Bill Gates and for Stanley Kroenke.  Give the text of the lines from the file which record their net worths.
+
+546   <h3>Bill Gates</h3></a></td>
+547		  <td class="worth">$72 B</td>
+	
+1376	<h3>Stanley Kroenke</h3></a></td>
+1377		<td class="worth">$5,3 B</td>	
+
+
+3. Write a regular expression which should capture a person's net worth.  Write code, using the `grep` function, to check that this has 100 matches in `richhtml`, and that the expression is matching the actual net worths (and not just some bit of text associated with them).
+
+```{r}
+
+net_worth_location <- grep(richhtml, pattern = "\\$[0-9]+,*[0-9]*\\s[B]")
+
+```
+
+4. Write code, using your regular expression from problem 3 and the functions `regexp` and `regmatches`, to extract all the net worths from `richhtml`.  Check the following:
+    a. There should be 100 net worths.
+    b. The largest net worth should be that of Bill Gates, and there should be only one person worth that much.
+    c. There should be exactly one person whose net worth matches what you observed for Stanley Kroenke.
+    d. There should be at least two values which appear more than once.
+    
+```{r}
+gen_expr <- paste("\\$[0-9]+,*[0-9]*\\s[B]") 
+
+have_worth <- grepl(richhtml, pattern = gen_expr)
+
+worth_match <- gregexpr( text = richhtml[have_worth], pattern = gen_expr)
+  
+worth <- regmatches(richhtml[have_worth], m=worth_match)
+```
+
+Part II
+===
+
+4. The _Forbes_ website writes net worths in the form "$7,7 B" to mean $7.7 \times {10}^{9}$ dollars.  Write code to convert from the _Forbes_ format to floating-point numbers, and run it to create a vector of net worths, called `networths`.  Check the following:
+
+
+```{r}
+networth <- do.call(c,worth)  # De-list-ify to vector
+networth <- gsub("," ,"." , networth)
+networth <- gsub("B" ,"" , networth)
+networth <- gsub("[$]","" , networth)
+networth <- gsub("[[:space:]]","" , networth)
+networth <- as.array(networth)
+networth <- apply(networth,1,as.numeric)
+networth <- networth*(10^9)
+
+```
+
+    a. `networths` is indeed a vector, of length 100 and type `double`.
+    b. All of the entries in `networths` are greater than 1 billion.
+    c. The largest entry in `networths` matches the net worth of Bill Gates.
+    d. There is exactly one entry in `networths`  matching the net worth of Stanley Kroenke.
+    
+5. _Skew_ Answering the following using the `networths` vector from problem 4:
+    a. What is the median net worth of these 100 people?
+    b. What is the mean net worth of these 100 people?
+    c. How many of these 100 individuals were worth at least 5 billion dollars? 10 billion? 25 billion?
+
+6. _Concentrate_ Again, answer using the `networths` vector.
+    a. What is the total net worth of the 100 richest people?
+    b. What fraction of that total was held by the five richest people?
+    c. What fraction of that total wealth is held by the richest 20 individuals?
+    d. What is the smallest number of people who together hold at least 80 percent of that total wealth?
+    e. There are about 118 million households in the US, with a total net worth of about 82 trillion dollars ([http://www.federalreserve.gov/releases/z1/current/z1.pdf]).  What fraction of that total wealth is held by the 100 richest people?  What is the ratio of the mean net worth of the richest 100 to the net worth of the mean household?
